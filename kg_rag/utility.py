@@ -60,9 +60,10 @@ def get_context_using_spoke_api(node_value):
     node_types = list(data_spoke_types["nodes"].keys())
     edge_types = list(data_spoke_types["edges"].keys())
     node_types_to_remove = ["DatabaseTimestamp", "Version"]
-    filtered_node_types = [node_type for node_type in node_types if node_type not in node_types_to_remove]
+    filtered_node_types = [
+        node_type for node_type in node_types if node_type not in node_types_to_remove]
     api_params = {
-        'node_filters' : filtered_node_types,
+        'node_filters': filtered_node_types,
         'edge_filters': edge_types,
         'cutoff_Compound_max_phase': config_data['cutoff_Compound_max_phase'],
         'cutoff_Protein_source': config_data['cutoff_Protein_source'],
@@ -72,12 +73,14 @@ def get_context_using_spoke_api(node_value):
         'cutoff_PiP_confidence': config_data['cutoff_PiP_confidence'],
         'cutoff_ACTeG_level': config_data['cutoff_ACTeG_level'],
         'cutoff_DpL_average_prevalence': config_data['cutoff_DpL_average_prevalence'],
-        'depth' : config_data['depth']
+        'depth': config_data['depth']
     }
     node_type = "Disease"
     attribute = "name"
-    nbr_end_point = "/api/v1/neighborhood/{}/{}/{}".format(node_type, attribute, node_value)
-    result = get_spoke_api_resp(config_data['BASE_URI'], nbr_end_point, params=api_params)
+    nbr_end_point = "/api/v1/neighborhood/{}/{}/{}".format(
+        node_type, attribute, node_value)
+    result = get_spoke_api_resp(
+        config_data['BASE_URI'], nbr_end_point, params=api_params)
     node_context = result.json()
     nbr_nodes = []
     nbr_edges = []
@@ -85,11 +88,14 @@ def get_context_using_spoke_api(node_value):
         if "_" not in item["data"]["neo4j_type"]:
             try:
                 if item["data"]["neo4j_type"] == "Protein":
-                    nbr_nodes.append((item["data"]["neo4j_type"], item["data"]["id"], item["data"]["properties"]["description"]))
+                    nbr_nodes.append(
+                        (item["data"]["neo4j_type"], item["data"]["id"], item["data"]["properties"]["description"]))
                 else:
-                    nbr_nodes.append((item["data"]["neo4j_type"], item["data"]["id"], item["data"]["properties"]["name"]))
+                    nbr_nodes.append(
+                        (item["data"]["neo4j_type"], item["data"]["id"], item["data"]["properties"]["name"]))
             except:
-                nbr_nodes.append((item["data"]["neo4j_type"], item["data"]["id"], item["data"]["properties"]["identifier"]))
+                nbr_nodes.append((item["data"]["neo4j_type"], item["data"]
+                                 ["id"], item["data"]["properties"]["identifier"]))
         elif "_" in item["data"]["neo4j_type"]:
             try:
                 provenance = ", ".join(item["data"]["properties"]["sources"])
@@ -97,43 +103,56 @@ def get_context_using_spoke_api(node_value):
                 try:
                     provenance = item["data"]["properties"]["source"]
                     if isinstance(provenance, list):
-                        provenance = ", ".join(provenance)                    
+                        provenance = ", ".join(provenance)
                 except:
-                    try:                    
-                        preprint_list = ast.literal_eval(item["data"]["properties"]["preprint_list"])
-                        if len(preprint_list) > 0:                                                    
+                    try:
+                        preprint_list = ast.literal_eval(
+                            item["data"]["properties"]["preprint_list"])
+                        if len(preprint_list) > 0:
                             provenance = ", ".join(preprint_list)
                         else:
-                            pmid_list = ast.literal_eval(item["data"]["properties"]["pmid_list"])
-                            pmid_list = map(lambda x:"pubmedId:"+x, pmid_list)
+                            pmid_list = ast.literal_eval(
+                                item["data"]["properties"]["pmid_list"])
+                            pmid_list = map(lambda x: "pubmedId:"+x, pmid_list)
                             if len(pmid_list) > 0:
                                 provenance = ", ".join(pmid_list)
                             else:
                                 provenance = "Based on data from Institute For Systems Biology (ISB)"
-                    except:                                
-                        provenance = "SPOKE-KG"     
+                    except:
+                        provenance = "SPOKE-KG"
             try:
                 evidence = item["data"]["properties"]
             except:
                 evidence = None
-            nbr_edges.append((item["data"]["source"], item["data"]["neo4j_type"], item["data"]["target"], provenance, evidence))
-    nbr_nodes_df = pd.DataFrame(nbr_nodes, columns=["node_type", "node_id", "node_name"])
-    nbr_edges_df = pd.DataFrame(nbr_edges, columns=["source", "edge_type", "target", "provenance", "evidence"])
-    merge_1 = pd.merge(nbr_edges_df, nbr_nodes_df, left_on="source", right_on="node_id").drop("node_id", axis=1)
-    merge_1.loc[:,"node_name"] = merge_1.node_type + " " + merge_1.node_name
+            nbr_edges.append((item["data"]["source"], item["data"]
+                             ["neo4j_type"], item["data"]["target"], provenance, evidence))
+    nbr_nodes_df = pd.DataFrame(
+        nbr_nodes, columns=["node_type", "node_id", "node_name"])
+    nbr_edges_df = pd.DataFrame(
+        nbr_edges, columns=["source", "edge_type", "target", "provenance", "evidence"])
+    merge_1 = pd.merge(nbr_edges_df, nbr_nodes_df, left_on="source",
+                       right_on="node_id").drop("node_id", axis=1)
+    merge_1.loc[:, "node_name"] = merge_1.node_type + " " + merge_1.node_name
     merge_1.drop(["source", "node_type"], axis=1, inplace=True)
-    merge_1 = merge_1.rename(columns={"node_name":"source"})
-    merge_2 = pd.merge(merge_1, nbr_nodes_df, left_on="target", right_on="node_id").drop("node_id", axis=1)
-    merge_2.loc[:,"node_name"] = merge_2.node_type + " " + merge_2.node_name
+    merge_1 = merge_1.rename(columns={"node_name": "source"})
+    merge_2 = pd.merge(merge_1, nbr_nodes_df, left_on="target",
+                       right_on="node_id").drop("node_id", axis=1)
+    merge_2.loc[:, "node_name"] = merge_2.node_type + " " + merge_2.node_name
     merge_2.drop(["target", "node_type"], axis=1, inplace=True)
-    merge_2 = merge_2.rename(columns={"node_name":"target"})
-    merge_2 = merge_2[["source", "edge_type", "target", "provenance", "evidence"]]
-    merge_2.loc[:, "predicate"] = merge_2.edge_type.apply(lambda x:x.split("_")[0])
-    merge_2.loc[:, "context"] =  merge_2.source + " " + merge_2.predicate.str.lower() + " " + merge_2.target + " and Provenance of this association is " + merge_2.provenance + "."
+    merge_2 = merge_2.rename(columns={"node_name": "target"})
+    merge_2 = merge_2[["source", "edge_type",
+                       "target", "provenance", "evidence"]]
+    merge_2.loc[:, "predicate"] = merge_2.edge_type.apply(
+        lambda x: x.split("_")[0])
+    merge_2.loc[:, "context"] = merge_2.source + " " + merge_2.predicate.str.lower() + " " + \
+        merge_2.target + " and Provenance of this association is " + merge_2.provenance + "."
     context = merge_2.context.str.cat(sep=' ')
-    context += node_value + " has a " + node_context[0]["data"]["properties"]["source"] + " identifier of " + node_context[0]["data"]["properties"]["identifier"] + " and Provenance of this is from " + node_context[0]["data"]["properties"]["source"] + "."
+    context += node_value + " has a " + node_context[0]["data"]["properties"]["source"] + " identifier of " + \
+        node_context[0]["data"]["properties"]["identifier"] + \
+        " and Provenance of this is from " + \
+        node_context[0]["data"]["properties"]["source"] + "."
     return context, merge_2
-        
+
 #         if edge_evidence:
 #             merge_2.loc[:, "context"] =  merge_2.source + " " + merge_2.predicate.str.lower() + " " + merge_2.target + " and Provenance of this association is " + merge_2.provenance + " and attributes associated with this association is in the following JSON format:\n " + merge_2.evidence.astype('str') + "\n\n"
 #         else:
@@ -145,61 +164,61 @@ def get_context_using_spoke_api(node_value):
 
 def get_prompt(instruction, new_system_prompt):
     system_prompt = B_SYS + new_system_prompt + E_SYS
-    prompt_template =  B_INST + system_prompt + instruction + E_INST
+    prompt_template = B_INST + system_prompt + instruction + E_INST
     return prompt_template
 
 
 def llama_model(model_name, branch_name, cache_dir, temperature=0, top_p=1, max_new_tokens=512, stream=False, method='method-1'):
     if method == 'method-1':
         tokenizer = AutoTokenizer.from_pretrained(model_name,
-                                                 revision=branch_name,
-                                                 cache_dir=cache_dir)
-        model = AutoModelForCausalLM.from_pretrained(model_name,                                             
-                                            device_map='auto',
-                                            torch_dtype=torch.float16,
-                                            revision=branch_name,
-                                            cache_dir=cache_dir)
+                                                  revision=branch_name,
+                                                  cache_dir=cache_dir)
+        model = AutoModelForCausalLM.from_pretrained(model_name,
+                                                     device_map='auto',
+                                                     torch_dtype=torch.float16,
+                                                     revision=branch_name,
+                                                     cache_dir=cache_dir)
     elif method == 'method-2':
         import transformers
-        tokenizer = transformers.LlamaTokenizer.from_pretrained(model_name, 
-                                                                revision=branch_name, 
-                                                                cache_dir=cache_dir, 
+        tokenizer = transformers.LlamaTokenizer.from_pretrained(model_name,
+                                                                revision=branch_name,
+                                                                cache_dir=cache_dir,
                                                                 legacy=False,
                                                                 token="hf_WbtWB...")
-        model = transformers.LlamaForCausalLM.from_pretrained(model_name, 
-                                                              device_map='auto', 
-                                                              torch_dtype=torch.float16, 
-                                                              revision=branch_name, 
+        model = transformers.LlamaForCausalLM.from_pretrained(model_name,
+                                                              device_map='auto',
+                                                              torch_dtype=torch.float16,
+                                                              revision=branch_name,
                                                               cache_dir=cache_dir,
-                                                              token="hf_WbtWB...")        
+                                                              token="hf_WbtWB...")
     if not stream:
         pipe = pipeline("text-generation",
-                    model = model,
-                    tokenizer = tokenizer,
-                    torch_dtype = torch.bfloat16,
-                    device_map = "auto",
-                    max_new_tokens = max_new_tokens,
-                    do_sample = True
-                    )
+                        model=model,
+                        tokenizer=tokenizer,
+                        torch_dtype=torch.bfloat16,
+                        device_map="auto",
+                        max_new_tokens=max_new_tokens,
+                        do_sample=True
+                        )
     else:
         streamer = TextStreamer(tokenizer)
         pipe = pipeline("text-generation",
-                    model = model,
-                    tokenizer = tokenizer,
-                    torch_dtype = torch.bfloat16,
-                    device_map = "auto",
-                    max_new_tokens = max_new_tokens,
-                    do_sample = True,
-                    streamer=streamer
-                    )        
-    llm = HuggingFacePipeline(pipeline = pipe,
-                              model_kwargs = {"temperature":temperature, "top_p":top_p})
+                        model=model,
+                        tokenizer=tokenizer,
+                        torch_dtype=torch.bfloat16,
+                        device_map="auto",
+                        max_new_tokens=max_new_tokens,
+                        do_sample=True,
+                        streamer=streamer
+                        )
+    llm = HuggingFacePipeline(pipeline=pipe,
+                              model_kwargs={"temperature": temperature, "top_p": top_p})
     return llm
 
 
 @retry(wait=wait_random_exponential(min=10, max=30), stop=stop_after_attempt(5))
 def fetch_GPT_response(instruction, system_prompt, chat_model_id, chat_deployment_id, temperature=0):
-    
+
     response = openai.ChatCompletion.create(
         temperature=temperature,
         # deployment_id=chat_deployment_id,
@@ -209,7 +228,7 @@ def fetch_GPT_response(instruction, system_prompt, chat_model_id, chat_deploymen
             {"role": "user", "content": instruction}
         ]
     )
-    
+
     if 'choices' in response \
        and isinstance(response['choices'], list) \
        and len(response) >= 0 \
@@ -219,9 +238,11 @@ def fetch_GPT_response(instruction, system_prompt, chat_model_id, chat_deploymen
     else:
         return 'Unexpected response'
 
+
 @memory.cache
 def get_GPT_response(instruction, system_prompt, chat_model_id, chat_deployment_id, temperature=0):
-    res = fetch_GPT_response(instruction, system_prompt, chat_model_id, chat_deployment_id, temperature)
+    res = fetch_GPT_response(instruction, system_prompt,
+                             chat_model_id, chat_deployment_id, temperature)
     return res
 
 
@@ -233,7 +254,7 @@ def fetch_Gemini_response(instruction, system_prompt, temperature=0.0):
     )
     response = model.generate_content(instruction)
     return response.text
-    
+
 
 @memory.cache
 def get_Gemini_response(instruction, system_prompt, temperature=0.0):
@@ -271,7 +292,8 @@ def get_gemini():
 
 def disease_entity_extractor(text):
     chat_model_id, chat_deployment_id = get_gpt35()
-    resp = get_GPT_response(text, system_prompts["DISEASE_ENTITY_EXTRACTION"], chat_model_id, chat_deployment_id, temperature=0)
+    resp = get_GPT_response(
+        text, system_prompts["DISEASE_ENTITY_EXTRACTION"], chat_model_id, chat_deployment_id, temperature=0)
     try:
         entity_dict = json.loads(resp)
         return entity_dict["Diseases"]
@@ -281,8 +303,10 @@ def disease_entity_extractor(text):
 
 def disease_entity_extractor_v2(text, model_id):
     assert model_id in ("gemini-2.0-flash")
-    prompt_updated = system_prompts["DISEASE_ENTITY_EXTRACTION"] + "\n" + "Sentence : " + text
-    resp = get_Gemini_response(prompt_updated, system_prompts["DISEASE_ENTITY_EXTRACTION"], temperature=0.0)
+    prompt_updated = system_prompts["DISEASE_ENTITY_EXTRACTION"] + \
+        "\n" + "Sentence : " + text
+    resp = get_Gemini_response(
+        prompt_updated, system_prompts["DISEASE_ENTITY_EXTRACTION"], temperature=0.0)
     if resp.startswith("```json\n"):
         resp = resp.replace("```json\n", "", 1)
     if resp.endswith("\n```"):
@@ -292,7 +316,7 @@ def disease_entity_extractor_v2(text, model_id):
         return entity_dict["Diseases"]
     except:
         return None
-    
+
 
 def load_sentence_transformer(sentence_embedding_model):
     return SentenceTransformerEmbeddings(model_name=sentence_embedding_model)
@@ -303,37 +327,53 @@ def load_chroma(vector_db_path, sentence_embedding_model):
     return Chroma(persist_directory=vector_db_path, embedding_function=embedding_function)
 
 
-def retrieve_context(question, vectorstore, embedding_function, node_context_df, context_volume, context_sim_threshold, context_sim_min_threshold, edge_evidence,model_id="gpt-3.5-turbo", api=False):
+def retrieve_context(question, vectorstore, embedding_function, node_context_df, context_volume, context_sim_threshold, context_sim_min_threshold, edge_evidence, model_id="gpt-3.5-turbo", api=False):
     print("question:", question)
     entities = disease_entity_extractor_v2(question, model_id)
     print("entities:", entities)
     node_hits = []
     if entities:
-        max_number_of_high_similarity_context_per_node = int(context_volume/len(entities))
+        max_number_of_high_similarity_context_per_node = int(
+            context_volume/len(entities))
         for entity in entities:
-            node_search_result = vectorstore.similarity_search_with_score(entity, k=1)
+            node_search_result = vectorstore.similarity_search_with_score(
+                entity, k=1)
             node_hits.append(node_search_result[0][0].page_content)
         question_embedding = embedding_function.embed_query(question)
         node_context_extracted = ""
         for node_name in node_hits:
             if not api:
-                node_context = node_context_df[node_context_df.node_name == node_name].node_context.values[0]
+                node_context = node_context_df[node_context_df.node_name ==
+                                               node_name].node_context.values[0]
             else:
-                node_context,context_table = get_context_using_spoke_api(node_name)
-            node_context_list = node_context.split(". ")        
-            node_context_embeddings = embedding_function.embed_documents(node_context_list)
-            similarities = [cosine_similarity(np.array(question_embedding).reshape(1, -1), np.array(node_context_embedding).reshape(1, -1)) for node_context_embedding in node_context_embeddings]
-            similarities = sorted([(e, i) for i, e in enumerate(similarities)], reverse=True)
-            percentile_threshold = np.percentile([s[0] for s in similarities], context_sim_threshold)
-            high_similarity_indices = [s[1] for s in similarities if s[0] > percentile_threshold and s[0] > context_sim_min_threshold]
+                node_context, context_table = get_context_using_spoke_api(
+                    node_name)
+            node_context_list = node_context.split(". ")
+            node_context_embeddings = embedding_function.embed_documents(
+                node_context_list)
+            similarities = [cosine_similarity(np.array(question_embedding).reshape(1, -1), np.array(
+                node_context_embedding).reshape(1, -1)) for node_context_embedding in node_context_embeddings]
+            similarities = sorted(
+                [(e, i) for i, e in enumerate(similarities)], reverse=True)
+            percentile_threshold = np.percentile(
+                [s[0] for s in similarities], context_sim_threshold)
+            high_similarity_indices = [s[1] for s in similarities if s[0]
+                                       > percentile_threshold and s[0] > context_sim_min_threshold]
             if len(high_similarity_indices) > max_number_of_high_similarity_context_per_node:
-                high_similarity_indices = high_similarity_indices[:max_number_of_high_similarity_context_per_node]
-            high_similarity_context = [node_context_list[index] for index in high_similarity_indices]            
+                high_similarity_indices = high_similarity_indices[:
+                                                                  max_number_of_high_similarity_context_per_node]
+            high_similarity_context = [node_context_list[index]
+                                       for index in high_similarity_indices]
             if edge_evidence:
-                high_similarity_context = list(map(lambda x:x+'.', high_similarity_context)) 
-                context_table = context_table[context_table.context.isin(high_similarity_context)]
-                context_table.loc[:, "context"] =  context_table.source + " " + context_table.predicate.str.lower() + " " + context_table.target + " and Provenance of this association is " + context_table.provenance + " and attributes associated with this association is in the following JSON format:\n " + context_table.evidence.astype('str') + "\n\n"                
-                node_context_extracted += context_table.context.str.cat(sep=' ')
+                high_similarity_context = list(
+                    map(lambda x: x+'.', high_similarity_context))
+                context_table = context_table[context_table.context.isin(
+                    high_similarity_context)]
+                context_table.loc[:, "context"] = context_table.source + " " + context_table.predicate.str.lower() + " " + context_table.target + " and Provenance of this association is " + \
+                    context_table.provenance + " and attributes associated with this association is in the following JSON format:\n " + \
+                    context_table.evidence.astype('str') + "\n\n"
+                node_context_extracted += context_table.context.str.cat(
+                    sep=' ')
             else:
                 node_context_extracted += ". ".join(high_similarity_context)
                 node_context_extracted += ". "
@@ -346,52 +386,236 @@ def retrieve_context(question, vectorstore, embedding_function, node_context_df,
         for node in node_hits:
             node_name = node[0].page_content
             if not api:
-                node_context = node_context_df[node_context_df.node_name == node_name].node_context.values[0]
+                node_context = node_context_df[node_context_df.node_name ==
+                                               node_name].node_context.values[0]
             else:
-                node_context, context_table = get_context_using_spoke_api(node_name)
-            node_context_list = node_context.split(". ")        
-            node_context_embeddings = embedding_function.embed_documents(node_context_list)
-            similarities = [cosine_similarity(np.array(question_embedding).reshape(1, -1), np.array(node_context_embedding).reshape(1, -1)) for node_context_embedding in node_context_embeddings]
-            similarities = sorted([(e, i) for i, e in enumerate(similarities)], reverse=True)
-            percentile_threshold = np.percentile([s[0] for s in similarities], context_sim_threshold)
-            high_similarity_indices = [s[1] for s in similarities if s[0] > percentile_threshold and s[0] > context_sim_min_threshold]
+                node_context, context_table = get_context_using_spoke_api(
+                    node_name)
+            node_context_list = node_context.split(". ")
+            node_context_embeddings = embedding_function.embed_documents(
+                node_context_list)
+            similarities = [cosine_similarity(np.array(question_embedding).reshape(1, -1), np.array(
+                node_context_embedding).reshape(1, -1)) for node_context_embedding in node_context_embeddings]
+            similarities = sorted(
+                [(e, i) for i, e in enumerate(similarities)], reverse=True)
+            percentile_threshold = np.percentile(
+                [s[0] for s in similarities], context_sim_threshold)
+            high_similarity_indices = [s[1] for s in similarities if s[0]
+                                       > percentile_threshold and s[0] > context_sim_min_threshold]
             if len(high_similarity_indices) > max_number_of_high_similarity_context_per_node:
-                high_similarity_indices = high_similarity_indices[:max_number_of_high_similarity_context_per_node]
-            high_similarity_context = [node_context_list[index] for index in high_similarity_indices]
+                high_similarity_indices = high_similarity_indices[:
+                                                                  max_number_of_high_similarity_context_per_node]
+            high_similarity_context = [node_context_list[index]
+                                       for index in high_similarity_indices]
             if edge_evidence:
-                high_similarity_context = list(map(lambda x:x+'.', high_similarity_context))
-                context_table = context_table[context_table.context.isin(high_similarity_context)]
-                context_table.loc[:, "context"] =  context_table.source + " " + context_table.predicate.str.lower() + " " + context_table.target + " and Provenance of this association is " + context_table.provenance + " and attributes associated with this association is in the following JSON format:\n " + context_table.evidence.astype('str') + "\n\n"                
-                node_context_extracted += context_table.context.str.cat(sep=' ')
+                high_similarity_context = list(
+                    map(lambda x: x+'.', high_similarity_context))
+                context_table = context_table[context_table.context.isin(
+                    high_similarity_context)]
+                context_table.loc[:, "context"] = context_table.source + " " + context_table.predicate.str.lower() + " " + context_table.target + " and Provenance of this association is " + \
+                    context_table.provenance + " and attributes associated with this association is in the following JSON format:\n " + \
+                    context_table.evidence.astype('str') + "\n\n"
+                node_context_extracted += context_table.context.str.cat(
+                    sep=' ')
             else:
                 node_context_extracted += ". ".join(high_similarity_context)
                 node_context_extracted += ". "
         return node_context_extracted
-    
-    
+
+
+def jsonlize_context(context):
+    """
+    Convert unstructured context text into structured JSON format.
+    Improved version that handles the actual patterns in the data better.
+
+    Args:
+        context: Unstructured text containing disease-gene-variant associations
+
+    Returns:
+        A structured JSON representation of the context
+    """
+    import re
+
+    # Initialize the structured data
+    structured_data = {}
+
+    # Split context into sentences - handle both ". " and ".." patterns
+    sentences = re.split(r'\.\s*\.?\s*', context)
+
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence or len(sentence) < 10:  # Skip very short sentences
+            continue
+
+        # Pattern 1: Disease X associates Gene Y (with provenance)
+        pattern1 = r'Disease\s+(.+?)\s+associates\s+Gene\s+(.+?)\s+and\s+Provenance\s+of\s+this\s+association\s+is\s+(.+)'
+        match1 = re.search(pattern1, sentence, re.IGNORECASE)
+
+        if match1:
+            disease = match1.group(1).strip()
+            gene = match1.group(2).strip()
+            provenance = match1.group(3).strip()
+
+            if disease not in structured_data:
+                structured_data[disease] = {}
+
+            if "Genetic Associations" not in structured_data[disease]:
+                structured_data[disease]["Genetic Associations"] = []
+
+            # Add gene to list if not already present
+            if gene not in structured_data[disease]["Genetic Associations"]:
+                structured_data[disease]["Genetic Associations"].append(gene)
+            continue
+
+        # Pattern 2: Disease X associates Gene Y (without provenance) - most common case
+        pattern2 = r'Disease\s+(.+?)\s+associates\s+Gene\s+(.+?)(?:\s*\.|$)'
+        match2 = re.search(pattern2, sentence, re.IGNORECASE)
+
+        if match2:
+            disease = match2.group(1).strip()
+            gene = match2.group(2).strip().rstrip('.')
+
+            if disease not in structured_data:
+                structured_data[disease] = {}
+
+            if "Genetic Associations" not in structured_data[disease]:
+                structured_data[disease]["Genetic Associations"] = []
+
+            # Add gene to list if not already present
+            if gene not in structured_data[disease]["Genetic Associations"]:
+                structured_data[disease]["Genetic Associations"].append(gene)
+            continue
+
+        # Pattern 3: Variant X associates Disease Y (with provenance)
+        pattern3 = r'Variant\s+(.+?)\s+associates\s+Disease\s+(.+?)\s+and\s+Provenance\s+of\s+this\s+association\s+is\s+(.+)'
+        match3 = re.search(pattern3, sentence, re.IGNORECASE)
+
+        if match3:
+            variant = match3.group(1).strip()
+            disease = match3.group(2).strip()
+            provenance = match3.group(3).strip()
+
+            if disease not in structured_data:
+                structured_data[disease] = {}
+
+            if "Variant Associations" not in structured_data[disease]:
+                structured_data[disease]["Variant Associations"] = []
+
+            # Add variant to list if not already present
+            if variant not in structured_data[disease]["Variant Associations"]:
+                structured_data[disease]["Variant Associations"].append(
+                    variant)
+            continue
+
+        # Pattern 4: Variant X associates Disease Y (without provenance) - most common case
+        pattern4 = r'Variant\s+(.+?)\s+associates\s+Disease\s+(.+?)(?:\s*\.|$)'
+        match4 = re.search(pattern4, sentence, re.IGNORECASE)
+
+        if match4:
+            variant = match4.group(1).strip()
+            disease = match4.group(2).strip().rstrip('.')
+
+            if disease not in structured_data:
+                structured_data[disease] = {}
+
+            if "Variant Associations" not in structured_data[disease]:
+                structured_data[disease]["Variant Associations"] = []
+
+            # Add variant to list if not already present
+            if variant not in structured_data[disease]["Variant Associations"]:
+                structured_data[disease]["Variant Associations"].append(
+                    variant)
+            continue
+
+        # Pattern 5: Disease ontology identifier
+        pattern5 = r'Disease\s+(?:ontology\s+)?identifier\s+of\s+(.+?)\s+is\s+(.+?)(?:\s*\.|$)'
+        match5 = re.search(pattern5, sentence, re.IGNORECASE)
+
+        if match5:
+            disease = match5.group(1).strip()
+            identifier = match5.group(2).strip().rstrip('.')
+
+            if disease not in structured_data:
+                structured_data[disease] = {}
+
+            if "Identifiers" not in structured_data[disease]:
+                structured_data[disease]["Identifiers"] = []
+
+            structured_data[disease]["Identifiers"].append(identifier)
+            continue
+
+        # Pattern 6: Disease X has a Y identifier of Z
+        pattern6 = r'(.+?)\s+has\s+a\s+(.+?)\s+identifier\s+of\s+(.+?)\s+and\s+Provenance'
+        match6 = re.search(pattern6, sentence, re.IGNORECASE)
+
+        if match6:
+            disease = match6.group(1).strip()
+            source = match6.group(2).strip()
+            identifier = match6.group(3).strip()
+
+            if disease not in structured_data:
+                structured_data[disease] = {}
+
+            if "Identifiers" not in structured_data[disease]:
+                structured_data[disease]["Identifiers"] = []
+
+            structured_data[disease]["Identifiers"].append({
+                "Source": source,
+                "ID": identifier
+            })
+            continue
+
+    # Clean up the data - remove empty entries and consolidate
+    cleaned_data = {}
+    for disease, data in structured_data.items():
+        cleaned_entry = {}
+
+        # Only include non-empty associations
+        if "Genetic Associations" in data and data["Genetic Associations"]:
+            cleaned_entry["Genetic Associations"] = data["Genetic Associations"]
+
+        if "Variant Associations" in data and data["Variant Associations"]:
+            cleaned_entry["Variant Associations"] = data["Variant Associations"]
+
+        if "Identifiers" in data and data["Identifiers"]:
+            cleaned_entry["Identifiers"] = data["Identifiers"]
+
+        if cleaned_entry:  # Only add if there's actual data
+            cleaned_data[disease] = cleaned_entry
+
+    # Wrap in a "Diseases" key if data exists
+    if cleaned_data:
+        return {"Diseases": cleaned_data}
+    else:
+        return {"Diseases": {}, "Note": "No structured data could be extracted from context"}
+
+
 def interactive(question, vectorstore, node_context_df, embedding_function_for_context_retrieval, llm_type, edge_evidence, system_prompt, api=True, llama_method="method-1"):
     print(" ")
     input("Press enter for Step 1 - Disease entity extraction using GPT-3.5-Turbo")
     print("Processing ...")
     entities = disease_entity_extractor_v2(question, "gpt-4o-mini")
-    max_number_of_high_similarity_context_per_node = int(config_data["CONTEXT_VOLUME"]/len(entities))
+    max_number_of_high_similarity_context_per_node = int(
+        config_data["CONTEXT_VOLUME"]/len(entities))
     print("Extracted entity from the prompt = '{}'".format(", ".join(entities)))
     print(" ")
-    
+
     input("Press enter for Step 2 - Match extracted Disease entity to SPOKE nodes")
     print("Finding vector similarity ...")
     node_hits = []
     for entity in entities:
-        node_search_result = vectorstore.similarity_search_with_score(entity, k=1)
+        node_search_result = vectorstore.similarity_search_with_score(
+            entity, k=1)
         node_hits.append(node_search_result[0][0].page_content)
     print("Matched entities from SPOKE = '{}'".format(", ".join(node_hits)))
     print(" ")
-    
+
     input("Press enter for Step 3 - Context extraction from SPOKE")
     node_context = []
     for node_name in node_hits:
         if not api:
-            node_context.append(node_context_df[node_context_df.node_name == node_name].node_context.values[0])
+            node_context.append(
+                node_context_df[node_context_df.node_name == node_name].node_context.values[0])
         else:
             context, context_table = get_context_using_spoke_api(node_name)
             node_context.append(context)
@@ -400,26 +624,40 @@ def interactive(question, vectorstore, node_context_df, embedding_function_for_c
     print(" ")
 
     input("Press enter for Step 4 - Context pruning")
-    question_embedding = embedding_function_for_context_retrieval.embed_query(question)
+    question_embedding = embedding_function_for_context_retrieval.embed_query(
+        question)
     node_context_extracted = ""
     for node_name in node_hits:
         if not api:
-            node_context = node_context_df[node_context_df.node_name == node_name].node_context.values[0]
+            node_context = node_context_df[node_context_df.node_name ==
+                                           node_name].node_context.values[0]
         else:
-            node_context, context_table = get_context_using_spoke_api(node_name)                        
-        node_context_list = node_context.split(". ")        
-        node_context_embeddings = embedding_function_for_context_retrieval.embed_documents(node_context_list)
-        similarities = [cosine_similarity(np.array(question_embedding).reshape(1, -1), np.array(node_context_embedding).reshape(1, -1)) for node_context_embedding in node_context_embeddings]
-        similarities = sorted([(e, i) for i, e in enumerate(similarities)], reverse=True)
-        percentile_threshold = np.percentile([s[0] for s in similarities], config_data["QUESTION_VS_CONTEXT_SIMILARITY_PERCENTILE_THRESHOLD"])
-        high_similarity_indices = [s[1] for s in similarities if s[0] > percentile_threshold and s[0] > config_data["QUESTION_VS_CONTEXT_MINIMUM_SIMILARITY"]]
+            node_context, context_table = get_context_using_spoke_api(
+                node_name)
+        node_context_list = node_context.split(". ")
+        node_context_embeddings = embedding_function_for_context_retrieval.embed_documents(
+            node_context_list)
+        similarities = [cosine_similarity(np.array(question_embedding).reshape(1, -1), np.array(
+            node_context_embedding).reshape(1, -1)) for node_context_embedding in node_context_embeddings]
+        similarities = sorted(
+            [(e, i) for i, e in enumerate(similarities)], reverse=True)
+        percentile_threshold = np.percentile(
+            [s[0] for s in similarities], config_data["QUESTION_VS_CONTEXT_SIMILARITY_PERCENTILE_THRESHOLD"])
+        high_similarity_indices = [s[1] for s in similarities if s[0] >
+                                   percentile_threshold and s[0] > config_data["QUESTION_VS_CONTEXT_MINIMUM_SIMILARITY"]]
         if len(high_similarity_indices) > max_number_of_high_similarity_context_per_node:
-            high_similarity_indices = high_similarity_indices[:max_number_of_high_similarity_context_per_node]
-        high_similarity_context = [node_context_list[index] for index in high_similarity_indices]               
+            high_similarity_indices = high_similarity_indices[:
+                                                              max_number_of_high_similarity_context_per_node]
+        high_similarity_context = [node_context_list[index]
+                                   for index in high_similarity_indices]
         if edge_evidence:
-            high_similarity_context = list(map(lambda x:x+'.', high_similarity_context)) 
-            context_table = context_table[context_table.context.isin(high_similarity_context)]
-            context_table.loc[:, "context"] =  context_table.source + " " + context_table.predicate.str.lower() + " " + context_table.target + " and Provenance of this association is " + context_table.provenance + " and attributes associated with this association is in the following JSON format:\n " + context_table.evidence.astype('str') + "\n\n"                
+            high_similarity_context = list(
+                map(lambda x: x+'.', high_similarity_context))
+            context_table = context_table[context_table.context.isin(
+                high_similarity_context)]
+            context_table.loc[:, "context"] = context_table.source + " " + context_table.predicate.str.lower() + " " + context_table.target + " and Provenance of this association is " + \
+                context_table.provenance + " and attributes associated with this association is in the following JSON format:\n " + \
+                context_table.evidence.astype('str') + "\n\n"
             node_context_extracted += context_table.context.str.cat(sep=' ')
         else:
             node_context_extracted += ". ".join(high_similarity_context)
@@ -427,17 +665,23 @@ def interactive(question, vectorstore, node_context_df, embedding_function_for_c
     print("Pruned Context is : ")
     print(node_context_extracted)
     print(" ")
-    
+
     input("Press enter for Step 5 - LLM prompting")
     print("Prompting ", llm_type)
     if llm_type == "llama":
         from langchain import PromptTemplate, LLMChain
-        template = get_prompt("Context:\n\n{context} \n\nQuestion: {question}", system_prompt)
-        prompt = PromptTemplate(template=template, input_variables=["context", "question"])
-        llm = llama_model(config_data["LLAMA_MODEL_NAME"], config_data["LLAMA_MODEL_BRANCH"], config_data["LLM_CACHE_DIR"], stream=True, method=llama_method) 
+        template = get_prompt(
+            "Context:\n\n{context} \n\nQuestion: {question}", system_prompt)
+        prompt = PromptTemplate(template=template, input_variables=[
+                                "context", "question"])
+        llm = llama_model(config_data["LLAMA_MODEL_NAME"], config_data["LLAMA_MODEL_BRANCH"],
+                          config_data["LLM_CACHE_DIR"], stream=True, method=llama_method)
         llm_chain = LLMChain(prompt=prompt, llm=llm)
-        output = llm_chain.run(context=node_context_extracted, question=question)
+        output = llm_chain.run(
+            context=node_context_extracted, question=question)
     elif "gpt" in llm_type:
-        enriched_prompt = "Context: "+ node_context_extracted + "\n" + "Question: " + question
-        output = get_GPT_response(enriched_prompt, system_prompt, llm_type, llm_type, temperature=config_data["LLM_TEMPERATURE"])
+        enriched_prompt = "Context: " + node_context_extracted + \
+            "\n" + "Question: " + question
+        output = get_GPT_response(enriched_prompt, system_prompt, llm_type,
+                                  llm_type, temperature=config_data["LLM_TEMPERATURE"])
         stream_out(output)
